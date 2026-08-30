@@ -1,0 +1,18 @@
+{
+    "default_city": {
+        "description": "默认查询城市（当指令不带城市时优先使用）",
+        "type": "string",
+        "default": "北京"
+    },
+    "forecast_days": {
+        "description": "天气预报天数（1-7 天）",
+        "type": "int",
+        "default": 3,
+        "hint": "控制 /天气 命令展示未来几天的预报"
+    },
+    "show_live_index": {
+        "description": "是否展示生活指数",
+        "type": "bool",
+        "default": true
+    }
+}

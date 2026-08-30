@@ -1,0 +1,26 @@
+# ================= AstrBot 插件元数据 =================
+# 注意：此文件是 AstrBot 识别插件元数据的唯一依据，请务必保留。
+
+# 插件标识符（英文小写，全局唯一，推荐以 astrbot_plugin_ 开头）
+name: moji_weather
+
+# 插件展示名称（显示在 WebUI 上）
+display_name: 墨迹天气查询
+
+# 插件短描述（用于插件市场卡片，可不填）
+short_desc: 查询实时天气、空气质量、未来天气预报与生活指数
+
+# 插件详细描述（支持 Markdown 多行文本）
+desc: |
+  一个基于 AstrBot 的天气查询插件。
+
+
+# 插件版本号（遵循语义化版本规范）
+version: 1.0.0
+
+# 插件作者
+author: xuanbao
+
+# 插件仓库地址（发布到插件市场后可用于更新，请改成你自己的仓库地址）
+repo: https://github.com/your-name/astrbot_plugin_weather
+
