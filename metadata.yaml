@@ -22,5 +22,5 @@ version: 1.0.0
 author: xuanbao
 
 # 插件仓库地址（发布到插件市场后可用于更新，请改成你自己的仓库地址）
-repo: https://github.com/your-name/astrbot_plugin_weather
+repo: https://github.com/yongwanxing/moji_weather
 
