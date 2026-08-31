@@ -1,4 +1,9 @@
 {
+    "api_base_url": {
+        "description": "天气接口地址（默认指向墨迹天气公共接口，可按需修改）",
+        "type": "string",
+        "default": "https://api.yuafeng.cn/API/ly/moji.php"
+    },
     "default_city": {
         "description": "默认查询城市（当指令不带城市时优先使用）",
         "type": "string",

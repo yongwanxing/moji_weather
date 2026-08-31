@@ -7,7 +7,7 @@ AstrBot 天气查询插件
 3. 支持在 WebUI 管理面板配置默认城市、预报天数、是否显示生活指数；
 4. 自动记住用户上次查询过的城市（数据持久化在 AstrBot 的 data 目录中）。
 
-api接口：https://api.yuafeng.cn/?action=doc&id=123
+api接口地址由插件配置项 api_base_url 提供（默认值配置于 _conf_schema.json）。
 """
 
 # ================= 标准库导入 =================
@@ -28,8 +28,8 @@ from astrbot.core.agent.tool import FunctionTool, ToolExecResult  # LLM 函数�
 from astrbot.core.astr_agent_context import AstrAgentContext  # Agent 执行上下文
 
 # ================= 常量定义 =================
-# 天气接口地址（墨迹天气公共接口）
-WEATHER_API_URL = "https://api.yuafeng.cn/API/ly/moji.php"
+# 说明：天气接口地址不硬编码于代码中，统一从插件配置项 api_base_url 读取
+# （默认值定义在 _conf_schema.json，代码内不出现完整接口地址字面量）。
 
 # 网络请求超时时间（秒）
 WEATHER_REQUEST_TIMEOUT = 10
@@ -150,12 +150,13 @@ def get_result_section(data: dict) -> dict:
 
 
 # ================= 天气接口请求 =================
-async def fetch_weather(city: str, num: int = 3) -> dict:
+async def fetch_weather(city: str, num: int = 3, api_url: str = "") -> dict:
     """异步请求天气接口并返回完整 JSON 数据。
 
     参数:
         city: 要查询的城市名称。
         num: 天气预报天数。
+        api_url: 天气接口完整地址，由调用方从插件配置读取后传入。
 
     返回:
         接口返回的完整 JSON 字典。
@@ -163,11 +164,14 @@ async def fetch_weather(city: str, num: int = 3) -> dict:
     异常:
         Exception: 网络错误、HTTP 状态码异常、响应解析失败或业务码非 0 时抛出。
     """
+    # 接口地址必须由调用方从插件配置读取后传入，代码内不出现完整地址字面量
+    if not api_url:
+        raise RuntimeError("天气接口地址为空，请检查插件配置项 api_base_url")
     # 构造请求参数
     params = {"city": city, "n": 1, "num": num}
     # 使用异步 httpx 客户端发起请求（禁止使用同步 requests）
     async with httpx.AsyncClient(timeout=WEATHER_REQUEST_TIMEOUT) as client:
-        resp = await client.get(WEATHER_API_URL, params=params)
+        resp = await client.get(api_url, params=params)
         # 非 2xx 状态码会抛出异常
         resp.raise_for_status()
         # 解析 JSON 响应
@@ -311,6 +315,9 @@ class WeatherTool(FunctionTool[AstrAgentContext]):
         }
     )
 
+    # 天气接口完整地址（由插件从配置读取后注入，代码内不出现完整地址字面量）
+    api_url: str = ""
+
     async def call(
         self,
         context: ContextWrapper[AstrAgentContext],
@@ -331,8 +338,8 @@ class WeatherTool(FunctionTool[AstrAgentContext]):
         if not city:
             return "缺少参数：请提供要查询天气的城市名称。"
         try:
-            # 发起异步天气请求
-            data = await fetch_weather(city, num=3)
+            # 发起异步天气请求（接口地址来自插件配置注入的实例字段）
+            data = await fetch_weather(city, num=3, api_url=self.api_url)
             # 构建天气文本并返回给大模型
             return build_weather_text(city, data, forecast_days=3, show_live_index=True)
         except Exception as err:
@@ -356,8 +363,21 @@ class WeatherPlugin(Star):
         # 保存插件配置
         self.config = config or {}
         # 注册 LLM 工具（新版推荐用法，禁止使用已弃用的 context.register_llm_tool）
-        self.context.add_llm_tools(WeatherTool())
+        # 接口地址从插件配置读取后注入工具实例，代码内不出现完整地址字面量
+        self.context.add_llm_tools(WeatherTool(api_url=self._get_api_url()))
         logger.info("天气插件加载完成，LLM 工具 get_weather 已注册。")
+
+    def _get_api_url(self) -> str:
+        """从插件配置中读取天气接口完整地址。
+
+        返回:
+            接口地址字符串；配置缺失或读取失败时返回空字符串。
+        """
+        try:
+            return safe_str(self.config.get("api_base_url"))
+        except Exception as err:
+            logger.warning(f"读取插件配置项 api_base_url 失败：{err}")
+            return ""
 
     @filter.command("天气", alias={"weather", "tianqi"})
     async def weather_command(self, event: AstrMessageEvent, city: str = "") -> None:
@@ -394,9 +414,17 @@ class WeatherPlugin(Star):
         # 从配置读取是否展示生活指数
         show_live_index = bool(self.config.get("show_live_index", True))
 
+        # 从插件配置读取天气接口完整地址（代码内不出现完整地址字面量）
+        api_url = self._get_api_url()
+        if not api_url:
+            yield event.plain_result(
+                "天气接口地址未配置，请在插件设置中填写 api_base_url 后重试。"
+            )
+            return
+
         # 发起天气查询请求（完整异常捕获，保证不崩溃）
         try:
-            data = await fetch_weather(city, num=forecast_days)
+            data = await fetch_weather(city, num=forecast_days, api_url=api_url)
         except Exception as err:
             logger.error(f"查询城市 {city} 天气失败：{err}")
             yield event.plain_result(f"查询 {city} 的天气失败了，请稍后再试。原因：{err}")
